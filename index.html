@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Android 权限风险清单 | 排序 + 筛选 | 完整指南</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f1f5f9;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 2rem 1rem;
+            color: #0f172a;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 2rem 1.8rem;
+            color: white;
+            border-bottom: 1px solid #334155;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 span {
+            background: #3b82f6;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.2rem 0.8rem;
+            border-radius: 40px;
+            background: #2563eb;
+        }
+
+        .sub {
+            margin-top: 0.6rem;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            border-left: 3px solid #3b82f6;
+            padding-left: 1rem;
+        }
+
+        /* 控制栏：筛选 + 排序 + 统计 */
+        .control-bar {
+            background: #f8fafc;
+            padding: 1rem 1.8rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #1e293b;
+        }
+
+        .filter-btn.active {
+            background: #1e293b;
+            border-color: #1e293b;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .sort-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #eef2ff;
+            padding: 0.2rem 1rem;
+            border-radius: 48px;
+        }
+
+        .sort-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #0f172a;
+            letter-spacing: 0.3px;
+        }
+
+        .sort-btn {
+            background: transparent;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.3rem 0.9rem;
+            border-radius: 32px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #334155;
+        }
+
+        .sort-btn.active-sort {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stats {
+            font-size: 0.8rem;
+            background: #eef2ff;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            color: #1e40af;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 68vh;
+            scroll-behavior: smooth;
+        }
+
+        .perm-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            min-width: 880px;
+        }
+
+        .perm-table th {
+            background: #f1f5f9;
+            color: #0f172a;
+            font-weight: 600;
+            padding: 1rem 1rem;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            background-color: #f1f5f9;
+            z-index: 10;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .perm-table td {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid #eef2ff;
+            vertical-align: top;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-align: center;
+            min-width: 56px;
+            letter-spacing: 0.3px;
+        }
+
+        .risk-极高 { background: #7f1a1a; color: white; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+        .risk-高 { background: #dc2626; color: white; }
+        .risk-中 { background: #ea580c; color: white; }
+        .risk-低 { background: #16a34a; color: white; }
+
+        .perm-name {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            background: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 8px;
+            display: inline-block;
+            color: #0c4a6e;
+            font-weight: 500;
+        }
+
+        .category-icon {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .footer-note {
+            background: #fef9e3;
+            padding: 1rem 1.8rem;
+            border-top: 1px solid #fde047;
+            font-size: 0.8rem;
+            color: #854d0e;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 780px) {
+            .control-bar { flex-direction: column; align-items: stretch; }
+            .sort-group { justify-content: space-between; }
+            .stats { text-align: center; }
+            .header h1 { font-size: 1.4rem; }
+        }
+
+        .perm-table tbody tr:hover {
+            background: #fefce8;
+            transition: 0.1s;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>
+            📱 Android 应用权限风险清单
+            <span>排序+筛选｜动态分析</span>
+        </h1>
+        <div class="sub">⚡ 支持按「权限名称」或「风险等级」排序 · 结合风险筛选器 · 极高风险可能导致直接经济损失</div>
+    </div>
+
+    <div class="control-bar">
+        <div class="filter-group">
+            <button class="filter-btn active" data-risk="all">🔍 全部权限</button>
+            <button class="filter-btn" data-risk="极高">🔴 极高风险</button>
+            <button class="filter-btn" data-risk="高">🟠 高风险</button>
+            <button class="filter-btn" data-risk="中">🟡 中风险</button>
+            <button class="filter-btn" data-risk="低">🟢 低风险</button>
+        </div>
+        <div class="sort-group">
+            <span class="sort-label">📊 排序方式：</span>
+            <button class="sort-btn" data-sort="name">🔤 按权限名称</button>
+            <button class="sort-btn active-sort" data-sort="risk">⚠️ 按风险等级（高→低）</button>
+        </div>
+        <div class="stats" id="statsInfo">📋 总计 <span id="totalCount">0</span> 项 · 展示 <span id="visibleCount">0</span></div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="perm-table" id="permTable">
+            <thead>
+                <tr>
+                    <th>权限类别</th><th>权限名称</th><th>功能说明</th><th>风险等级</th><th>风险说明</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- 动态渲染 -->
+            </tbody>
+        </table>
+    </div>
+    <div class="footer-note">
+        <div>🛡️ 原则：必要性原则 + 最小化原则 | 警惕极高/高风险权限的无理请求</div>
+        <div>📌 存储 / 麦克风 / 短信 / 通讯录为极高敏感，授予前需充分判断应用场景</div>
+    </div>
+</div>
+
+<script>
+    // ======================= 完整权限数据集 ========================
+    const permissionsData = [
+        // 日历
+        { category: "📅 日历", permName: "READ_CALENDAR / WRITE_CALENDAR", description: "读取或添加/修改日历活动", riskLevel: "高", riskDesc: "可分析行程、作息规律、会议安排甚至商业机密（如面试、签约日程）。" },
+        // 通话
+        { category: "📞 通话", permName: "CALL_PHONE", description: "直接拨打电话", riskLevel: "高", riskDesc: "可能在不知情下拨打付费声讯电话或骚扰他人，导致话费损失。" },
+        { category: "📞 通话", permName: "READ_PHONE_STATE", description: "读取设备状态及唯一标识码(IMEI)", riskLevel: "中", riskDesc: "追踪设备，关联不同App行为，用于用户画像，危害相对有限。" },
+        { category: "📞 通话", permName: "PROCESS_OUTGOING_CALLS", description: "监听、拦截或处理拨出的电话", riskLevel: "极高", riskDesc: "监控通话对象、时长，甚至插入其他号码，存在窃听风险。" },
+        // 相机
+        { category: "📷 相机", permName: "CAMERA", description: "调用相机拍摄照片或视频", riskLevel: "高", riskDesc: "可随时偷拍环境、人脸，扫描敏感文件或二维码信息。" },
+        // 通讯录
+        { category: "📁 通讯录", permName: "READ_CONTACTS / WRITE_CONTACTS", description: "读取或修改联系人数据", riskLevel: "极高", riskDesc: "获取全部社交关系用于诈骗/垃圾短信；可修改联系人号码造成重大安全隐患。" },
+        // 位置
+        { category: "📍 位置", permName: "ACCESS_FINE_LOCATION", description: "通过GPS获取精准位置", riskLevel: "高", riskDesc: "实时追踪家庭住址、工作单位、常去地点、行踪轨迹。" },
+        { category: "📍 位置", permName: "ACCESS_COARSE_LOCATION", description: "通过网络信号获取大致位置", riskLevel: "中", riskDesc: "推断城市或区域，用于区域化推送广告或内容。" },
+        // 麦克风
+        { category: "🎤 麦克风", permName: "RECORD_AUDIO", description: "使用麦克风进行录音", riskLevel: "极高", riskDesc: "随时静默录音，窃听私人谈话、会议内容、银行卡密码朗读，重大隐私风险。" },
+        // 传感器
+        { category: "🏃 传感器", permName: "ACTIVITY_RECOGNITION", description: "识别身体活动（如计步）", riskLevel: "低", riskDesc: "用于健身场景，推断走路或骑车，辅助生活模式推断，风险较低。" },
+        // 短信
+        { category: "✉️ 短信", permName: "SEND_SMS", description: "发送短信", riskLevel: "极高", riskDesc: "在不知情下向付费服务号码发送短信，向联系人发送诈骗信息造成经济损失。" },
+        { category: "✉️ 短信", permName: "READ_SMS", description: "读取短信", riskLevel: "极高", riskDesc: "读取所有短信，含银行转账验证码、登录验证码，直接导致账户资金被盗。" },
+        { category: "✉️ 短信", permName: "RECEIVE_SMS", description: "接收短信并读取验证码", riskLevel: "极高", riskDesc: "拦截并窃取验证码，同属资金通道高危。" },
+        // 存储
+        { category: "💾 存储", permName: "READ_EXTERNAL_STORAGE", description: "读取公共存储空间", riskLevel: "高", riskDesc: "读取所有照片、视频、文档，包括隐私照片、身份证翻拍、银行流水截图。" },
+        { category: "💾 存储", permName: "WRITE_EXTERNAL_STORAGE", description: "写入/下载文件到手机", riskLevel: "中", riskDesc: "可下载恶意文件或勒索病毒，或悄悄上传本地数据，间接风险。" },
+        // 系统/其他
+        { category: "🔧 系统/其他", permName: "INTERNET", description: "访问网络", riskLevel: "中", riskDesc: "结合其他高危权限可将窃取的数据发送到远程服务器，本身无害但联动风险大。" },
+        { category: "🔧 系统/其他", permName: "RECEIVE_BOOT_COMPLETED", description: "开机自启动", riskLevel: "低", riskDesc: "开机后自动运行，常驻后台持续收集数据或推送广告，影响续航和隐私习惯。" },
+        { category: "🔧 系统/其他", permName: "SYSTEM_ALERT_WINDOW", description: "在其他应用上层显示窗口", riskLevel: "高", riskDesc: "可绘制伪造的系统弹窗（如输入密码弹窗），诱导输入账号密码或支付密码。" },
+        { category: "🔧 系统/其他", permName: "GET_TASKS (读取应用列表)", description: "查看手机上安装了哪些应用", riskLevel: "中", riskDesc: "分析兴趣偏好（贷款类App判断经济情况）、竞品使用，用于精准营销或恶意判断。" },
+        { category: "🔧 系统/其他", permName: "VIBRATE / BLUETOOTH / ACCESS_WIFI_STATE", description: "振动、连接蓝牙、查看Wi-Fi状态", riskLevel: "低", riskDesc: "基础功能权限，基本不涉及隐私泄露，风险极低。" },
+        { category: "🔧 系统/其他", permName: "WAKE_LOCK", description: "防止设备休眠", riskLevel: "低", riskDesc: "保持屏幕常亮，多见于视频/游戏，无直接隐私风险。" }
+    ];
+
+    // 风险权重映射 (用于排序: 极高 -> 4, 高->3, 中->2, 低->1)
+    const riskWeight = {
+        "极高": 4,
+        "高": 3,
+        "中": 2,
+        "低": 1
+    };
+
+    // 原始保留一份副本（用于筛选后再排序，不改变原始数据顺序，但排序基于当前过滤后的数据视图）
+    // 为了灵活: 维护当前展示的数据数组（过滤后）以及当前排序方式，重新渲染时基于过滤+排序。
+    let currentFilter = "all";      // all, 极高, 高, 中, 低
+    let currentSort = "risk";       // "name" 或者 "risk"
+
+    // 辅助函数：根据过滤条件获取数据子集
+    function getFilteredData() {
+        if (currentFilter === "all") {
+            return [...permissionsData];
+        }
+        return permissionsData.filter(item => item.riskLevel === currentFilter);
+    }
+
+    // 排序函数 (原地排序)
+    function sortData(dataArray, sortType) {
+        if (sortType === "name") {
+            // 按权限名称字符串排序（中文/英文混合，使用localeCompare）
+            dataArray.sort((a, b) => {
+                // 优先比较 permName 字段，更直观
+                return a.permName.localeCompare(b.permName, 'zh');
+            });
+        } else if (sortType === "risk") {
+            // 按风险等级从高到低 (极高 -> 高 -> 中 -> 低)
+            dataArray.sort((a, b) => {
+                const weightA = riskWeight[a.riskLevel] || 0;
+                const weightB = riskWeight[b.riskLevel] || 0;
+                if (weightA !== weightB) return weightB - weightA; // 降序: 高风险在前
+                // 相同风险等级内，按类别+名称排序保持稳定
+                if (a.category !== b.category) return a.category.localeCompare(b.category, 'zh');
+                return a.permName.localeCompare(b.permName, 'zh');
+            });
+        }
+        return dataArray;
+    }
+
+    // 渲染表格 (基于 currentFilter + currentSort)
+    function renderTable() {
+        const tbody = document.getElementById("tableBody");
+        if (!tbody) return;
+        
+        // 1. 获取过滤后数据
+        let filtered = getFilteredData();
+        // 2. 排序 (注意sortData会修改原数组，但拷贝一份)
+        let workingData = [...filtered];
+        sortData(workingData, currentSort);
+        
+        // 更新统计信息
+        document.getElementById("totalCount").innerText = permissionsData.length;
+        document.getElementById("visibleCount").innerText = workingData.length;
+        
+        // 清空并重新填充
+        tbody.innerHTML = "";
+        if (workingData.length === 0) {
+            const emptyRow = document.createElement("tr");
+            emptyRow.innerHTML = `<td colspan="5" style="text-align:center; padding:3rem;">🔍 没有匹配风险等级的权限，请更换筛选条件</td>`;
+            tbody.appendChild(emptyRow);
+            return;
+        }
+        
+        workingData.forEach(item => {
+            const row = document.createElement("tr");
+            let riskClass = "";
+            if (item.riskLevel === "极高") riskClass = "risk-极高";
+            else if (item.riskLevel === "高") riskClass = "risk-高";
+            else if (item.riskLevel === "中") riskClass = "risk-中";
+            else riskClass = "risk-低";
+            
+            row.innerHTML = `
+                <td class="category-icon">${item.category}</td>
+                <td><span class="perm-name">${escapeHtml(item.permName)}</span></td>
+                <td>${escapeHtml(item.description)}</td>
+                <td><span class="risk-badge ${riskClass}">${item.riskLevel}</span></td>
+                <td>${escapeHtml(item.riskDesc)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    // 简单防XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
+    }
+    
+    // 更新筛选按钮活跃样式
+    function setActiveFilter(risk) {
+        const btns = document.querySelectorAll(".filter-btn");
+        btns.forEach(btn => {
+            const btnRisk = btn.getAttribute("data-risk");
+            if (btnRisk === risk) {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+        });
+    }
+    
+    // 更新排序按钮活跃样式
+    function setActiveSort(sortType) {
+        const sortBtns = document.querySelectorAll(".sort-btn");
+        sortBtns.forEach(btn => {
+            const sortVal = btn.getAttribute("data-sort");
+            if (sortVal === sortType) {
+                btn.classList.add("active-sort");
+            } else {
+                btn.classList.remove("active-sort");
+            }
+        });
+    }
+    
+    // 事件绑定
+    function bindEvents() {
+        // 筛选按钮监听
+        const filterBtns = document.querySelectorAll(".filter-btn");
+        filterBtns.forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const risk = btn.getAttribute("data-risk");
+                if (risk === currentFilter) return;
+                currentFilter = risk;
+                setActiveFilter(currentFilter);
+                // 保持排序方式不变，重新渲染
+                renderTable();
+            });
+        });
+        
+        // 排序按钮监听
+        const sortBtns = document.querySelectorAll(".sort-btn");
+        sortBtns.forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const sortType = btn.getAttribute("data-sort"); // "name" or "risk"
+                if (sortType === currentSort) return;
+                currentSort = sortType;
+                setActiveSort(currentSort);
+                renderTable();
+            });
+        });
+    }
+    
+    // 附加功能：调整表格滚动高度
+    function adjustTableWrapper() {
+        const wrapper = document.querySelector(".table-wrapper");
+        if (wrapper) {
+            if (window.innerHeight > 700) {
+                wrapper.style.maxHeight = "65vh";
+            } else {
+                wrapper.style.maxHeight = "58vh";
+            }
+        }
+    }
+    
+    // 初始化页面
+    function init() {
+        bindEvents();
+        // 默认排序: 风险等级 (高->低) 激活样式已经在html中手动预设了active-sort，但确保同步
+        currentSort = "risk";
+        currentFilter = "all";
+        setActiveFilter("all");
+        setActiveSort("risk");
+        renderTable();
+        adjustTableWrapper();
+        window.addEventListener("resize", adjustTableWrapper);
+    }
+    
+    init();
+</script>
+</body>
+</html>
